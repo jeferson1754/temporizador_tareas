@@ -1,0 +1,230 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #111;
+}
+
+.menu-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.menu-options {
+    display: flex;
+}
+
+.menu-option {
+    cursor: pointer;
+    margin: 10px;
+    padding-bottom: 5px;
+    position: relative;
+    color: #fff;
+    font-size: 24px;
+    text-shadow: 0 0 10px #4CAF50, 0 0 20px #4CAF50, 0 0 30px #4CAF50, 0 0 40px #4CAF50, 0 0 70px #4CAF50;
+}
+
+.menu-line {
+    height: 2px;
+    background-color: #4CAF50;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 104%;
+    transform: translateX(0);
+    transition: transform 0.3s ease-in-out;
+}
+
+.menu-option.active .menu-line {
+    transform: translateX(150%);
+    /* Mover la línea al 100% del ancho del menú-option */
+}
+
+/* Agregar estilos para el div de información */
+.info-container {
+    display: none;
+    margin-top: 20px;
+    padding: 20px;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 18px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    /* Sombra para el contenedor */
+}
+
+.mostrar {
+    display: block;
+}
+
+.info-container.active {
+    display: block;
+}
+
+.info-container input[type="checkbox"] {
+    display: none;
+}
+
+/* Estilos personalizados para los checkboxes */
+.info-container input[type="checkbox"]+label {
+    cursor: pointer;
+    display: inline-block;
+    position: relative;
+    padding-left: 25px;
+    margin-right: 10px;
+    margin-top: 10px;
+}
+
+.info-container input[type="checkbox"]+label::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 2px;
+    width: 18px;
+    height: 18px;
+    background-color: #a5d2a7;
+    border: 1px solid #4CAF50;
+    border-radius: 3px;
+}
+
+.info-container input[type="checkbox"]:checked+label::before {
+    content: "\2713";
+    /* Código para el ícono de check */
+    text-align: center;
+    font-size: 14px;
+    color: #4CAF50;
+    /* Color verde */
+    background-color: #fff;
+}
+
+.info-container input[type="checkbox"]:checked+label {
+    text-decoration: line-through;
+    /* Tachar la tarea al seleccionar el checkbox */
+    color: #888;
+    /* Color gris para tareas tachadas */
+    transition: all 0.3s ease-in-out;
+    /* Animación de tachado */
+}
+
+.info-container button {
+    padding: 8px 15px;
+    background-color: #4CAF50;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    /* Sombra para los botones */
+}
+
+.info-container button:hover {
+    background-color: #4CAF50;
+    /* Color morado más oscuro al pasar el mouse */
+}
+
+.info-container p {
+    font-size: 60px;
+    font-family: clockicons, sans-serif;
+}
+
+.checkbox-label-container {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.checkbox {
+    position: absolute;
+    left: 0;
+    top: 0;
+    /* Puedes ajustar los valores de left y top según tu diseño */
+}
+
+.checkbox-label {
+    margin-left: 30px;
+    /* Espacio entre el checkbox y el texto */
+    /* Otros estilos para la etiqueta */
+}
+
+/* Estilos para el modal */
+#myModal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+#myModal-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    background-color: #111;
+    box-shadow: 0 0 20px #00ff55, 0 0 30px #00ff55, 0 0 40px #00ff55, 0 0 60px #00ff55;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 24px;
+    font-weight: bold;
+    padding: 20px;
+}
+
+.nueva-tarea-btn {
+    margin-top: 10px;
+}
+
+/* Estilos para los input fields */
+input {
+    margin-bottom: 10px;
+    width: 100%;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+
+/* Estilos para los botones del modal */
+.modal-button {
+    background-color: #00ff55;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    font-size: 18px;
+    cursor: pointer;
+    border-radius: 5px;
+    box-shadow: 0 0 10px #00ff55;
+    margin: 5px;
+    /* Ajustar el margen entre los botones */
+}
+
+.modal-button:hover {
+    background-color: #00ff55;
+    opacity: 0.8;
+}
+
+/* CSS para la disposición de los botones en línea */
+.modal-button-container {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+        /* Espacio entre los botones */
+}
+
+.form-control {
+    display: block;
+    width: 100%;
+    height: calc(1.5em + 0.75rem + 2px);
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #fff;
+}

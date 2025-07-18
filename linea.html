@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opciones de Menú</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .menu-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .menu-options {
+            display: flex;
+        }
+
+        .menu-option {
+            cursor: pointer;
+            margin: 10px;
+            padding-bottom: 5px;
+            position: relative;
+        }
+
+        .menu-line {
+            height: 2px;
+            background-color: #4CAF50;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 104%;
+            transform: translateX(0);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .menu-option.active .menu-line {
+            transform: translateX(150%);
+            /* Mover la línea al 100% del ancho del menú-option */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="menu-container">
+        <div class="menu-options">
+            <div class="menu-option" onclick="showOption(1)">
+                Opción 1
+                <div class="menu-line"></div>
+            </div>
+            <div class="menu-option" onclick="showOption(2)">
+                Opción 2
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedOption = 1;
+
+        function showOption(option) {
+            if (option !== selectedOption) {
+                // Mover la línea debajo de la opción seleccionada
+                const menuLine = document.querySelector('.menu-line');
+                menuLine.style.transform = `translateX(${(option - 1) * 125}%)`;
+
+                selectedOption = option;
+            }
+        }
+
+        // Al cargar la página, mostrar la primera opción por defecto
+        showOption(selectedOption);
+    </script>
+</body>
+
+</html>
