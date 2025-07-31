@@ -158,7 +158,8 @@
             box-shadow: var(--shadow-hover);
         }
 
-        .add-task-btn {
+        .add-task-btn,
+        .mark-all-btn {
             background: var(--gradient);
             color: white;
             border: none;
@@ -175,7 +176,8 @@
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
 
-        .add-task-btn:hover {
+        .add-task-btn:hover,
+        .mark-all-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
         }
@@ -493,6 +495,64 @@
             color: var(--text-secondary);
         }
 
+        /* Styles for the new Stats Modal */
+        #stats-modal .modal-content {
+            max-width: 800px;
+            text-align: left;
+            height: 435px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            background: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-item i {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+
+        .stat-item h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .stat-item p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .progress-bar-container {
+            width: 80%;
+            height: 10px;
+            background-color: var(--border-color);
+            border-radius: 5px;
+            margin: 15px auto 0;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--gradient);
+            border-radius: 5px;
+            width: 0%;
+            /* Will be set by JS */
+            transition: width 0.5s ease-out;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .container {
@@ -573,9 +633,17 @@
 
         <div id="tasks-tab" class="tab-content active">
             <div class="card">
-                <button class="add-task-btn" onclick="showAddTaskModal()">
-                    <i class="fas fa-plus"></i> Nueva Tarea
-                </button>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 30px;">
+                    <button class="add-task-btn" onclick="showAddTaskModal()">
+                        <i class="fas fa-plus"></i> Nueva Tarea
+                    </button>
+                    <button class="mark-all-btn" onclick="markAllTasksAsDone()">
+                        <i class="fas fa-check-double"></i> Marcar todas como faltantes
+                    </button>
+                    <button class="mark-all-btn" style="background: var(--accent-color);" onclick="showStatsModal()">
+                        <i class="fas fa-chart-bar"></i> Estadísticas
+                    </button>
+                </div>
 
                 <div class="tasks-section" id="pending-tasks">
                     <h3><i class="fas fa-hourglass-half"></i> Tareas Pendientes</h3>
@@ -640,6 +708,16 @@
             </div>
         </div>
     </div>
+    <div id="stats-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="text-align: center;"><i class="fas fa-chart-line"></i> Estadísticas de Productividad</h2>
+            <div class="stats-grid" id="stats-content">
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" onclick="hideStatsModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
 
     <audio id="alarm-sound" preload="auto">
         <source src="op.mp4" type="audio/mp4">
@@ -660,7 +738,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             renderTasks();
             updateTimerDisplay();
-            addStatsButton();
             // Cargar la primera tarea pendiente en el temporizador al inicio
             loadFirstPendingTaskForTimer();
         });
@@ -1108,12 +1185,16 @@
         window.onclick = function(event) {
             const taskModal = document.getElementById('task-modal');
             const timerModal = document.getElementById('timer-modal');
+            const statsModal = document.getElementById('stats-modal'); // Get the new stats modal
 
             if (event.target === taskModal) {
                 hideAddTaskModal();
             }
             if (event.target === timerModal) {
                 closeTimerModal();
+            }
+            if (event.target === statsModal) { // Handle clicking outside the stats modal
+                hideStatsModal();
             }
         }
 
@@ -1123,6 +1204,7 @@
             if (e.key === 'Escape') {
                 hideAddTaskModal();
                 closeTimerModal();
+                hideStatsModal(); // Close stats modal on escape
             }
 
             // Ctrl/Cmd + N para nueva tarea
@@ -1270,50 +1352,126 @@
             };
         }
 
-        // Función para mostrar estadísticas
-        function showStats() {
-            // Esta función llama a getTaskStats, que necesita un array 'tasks' global.
-            // Si quieres estadísticas reales de la BD, tendrías que cargar todas las tareas aquí.
-            const stats = getTaskStats();
-            const message = `
-                📊 Estadísticas de Productividad:
-                
-                📝 Total de tareas: ${stats.total}
-                ✅ Completadas: ${stats.completed}
-                ⏳ Pendientes: ${stats.pending}
-                🎯 Tasa de completitud: ${stats.completionRate}%
-                ⏱️ Tiempo total: ${stats.totalTime} min
-                ✨ Tiempo completado: ${stats.completedTime} min
-            `;
-
-            alert(message);
-        }
-
-        // Mejorar la función de renderizado para incluir un botón de estadísticas
-        function addStatsButton() {
-            const tasksTab = document.getElementById('tasks-tab');
-            const card = tasksTab.querySelector('.card');
-
-            if (!document.getElementById('stats-btn')) {
-                const statsBtn = document.createElement('button');
-                statsBtn.id = 'stats-btn';
-                statsBtn.className = 'btn btn-secondary';
-                statsBtn.style.cssText = 'margin-left: 10px; padding: 10px 15px;';
-                statsBtn.innerHTML = '<i class="fas fa-chart-bar"></i> Estadísticas';
-                statsBtn.onclick = showStats;
-
-                const addTaskBtn = document.querySelector('.add-task-btn');
-                addTaskBtn.style.display = 'inline-flex';
-                addTaskBtn.parentNode.insertBefore(statsBtn, addTaskBtn.nextSibling);
+        // Función para obtener todas las tareas desde el servidor
+        async function getAllTasksFromServer() {
+            try {
+                const response = await fetch('obtener_todas_las_tareas.php');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (data.success) {
+                    return data.tasks; // Asume que el PHP devuelve { success: true, tasks: [...] }
+                } else {
+                    showNotification('Error al cargar todas las tareas: ' + data.message, 'danger');
+                    return [];
+                }
+            } catch (error) {
+                console.error('Error fetching all tasks:', error);
+                showNotification('Error de conexión al obtener todas las tareas.', 'danger');
+                return [];
             }
         }
 
-        // Llamar a addStatsButton cuando se carga la página
-        document.addEventListener('DOMContentLoaded', function() {
-            renderTasks();
-            updateTimerDisplay();
-            addStatsButton();
-        });
+        // Función para calcular y mostrar las estadísticas
+        async function calculateAndDisplayStats() {
+            const allTasks = await getAllTasksFromServer(); // Obtener todas las tareas
+
+            const totalTasks = allTasks.length;
+            const completedTasks = allTasks.filter(task => task.Estado === 'Hecho');
+            const pendingTasks = allTasks.filter(task => task.Estado === 'Faltante');
+
+            const numCompleted = completedTasks.length;
+            const numPending = pendingTasks.length;
+
+            const totalTimeMinutes = allTasks.reduce((sum, task) => sum + parseInt(task.Tiempo), 0); // Asegúrate que 'Tiempo' sea numérico
+            const completedTimeMinutes = completedTasks.reduce((sum, task) => sum + parseInt(task.Tiempo), 0);
+
+            const completionRate = totalTasks > 0 ? Math.round((numCompleted / totalTasks) * 100) : 0;
+            const averageTimePerTask = numCompleted > 0 ? (completedTimeMinutes / numCompleted).toFixed(1) : 0; // Tiempo promedio por tarea completada
+
+            const statsContent = document.getElementById('stats-content');
+            statsContent.innerHTML = `
+        <div class="stat-item">
+            <i class="fas fa-list-ul"></i>
+            <h4>${totalTasks}</h4>
+            <p>Total de Tareas</p>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-check-circle" style="color: var(--success-color);"></i>
+            <h4>${numCompleted}</h4>
+            <p>Tareas Completadas</p>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-hourglass-half" style="color: var(--warning-color);"></i>
+            <h4>${numPending}</h4>
+            <p>Tareas Pendientes</p>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-chart-pie" style="color: var(--accent-color);"></i>
+            <h4>${completionRate}%</h4>
+            <p>Tasa de Completitud</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: ${completionRate}%;"></div>
+            </div>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-clock"></i>
+            <h4>${totalTimeMinutes} min</h4>
+            <p>Tiempo Total Estimado</p>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-stopwatch" style="color: var(--success-color);"></i>
+            <h4>${completedTimeMinutes} min</h4>
+            <p>Tiempo Completado</p>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-tachometer-alt"></i>
+            <h4>${averageTimePerTask} min</h4>
+            <p>Tiempo Prom. por Tarea Resuelta</p>
+        </div>
+    `;
+        }
+
+        // Nueva función para marcar todas las tareas como hechas
+        function markAllTasksAsDone() {
+            if (!confirm('¿Estás seguro de que quieres marcar TODAS las tareas hechas como faltantes?')) {
+                return;
+            }
+
+            fetch('marcar_todas_como_hechas.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'estado=Hecho' // No es estrictamente necesario, pero lo enviamos para claridad.
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderTasks(); // Refrescar listas de tareas
+                        loadFirstPendingTaskForTimer(); // Cargar la próxima tarea para el temporizador (si hay)
+                        showNotification('Todas las tareas marcadas como faltantes.', 'success');
+                    } else {
+                        showNotification('Error al marcar tareas: ' + data.message, 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error de conexión al marcar tareas:', error);
+                    showNotification('Error de conexión al procesar la solicitud.', 'danger');
+                });
+        }
+
+        // Función para mostrar el modal de estadísticas
+        async function showStatsModal() {
+            await calculateAndDisplayStats(); // Calcular y mostrar antes de abrir el modal
+            document.getElementById('stats-modal').style.display = 'flex'; // Usar flex para centrar
+        }
+
+        // Función para ocultar el modal de estadísticas
+        function hideStatsModal() {
+            document.getElementById('stats-modal').style.display = 'none';
+        }
     </script>
 </body>
 
