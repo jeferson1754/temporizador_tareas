@@ -27,9 +27,9 @@ if (mysqli_num_rows($result) > 0) {
         echo '</div>';
     }
 } else {
-    echo "<div class='empty-state'>
-            <i class='fas fa-clipboard-list'></i>
-            <h3 style='margin: 0 auto;'>No hay tareas</h3>
-            <p>Agrega una nueva tarea para comenzar</p>
-        </div>";
+    echo "<div class='empty-state' style='display: flex; flex-direction: column; justify-content: center; align-items: center;'>
+    <i class='fas fa-clipboard-list'></i>
+    <h3 style='margin-top: 20px; margin-bottom: 10px; color: var(--text-secondary);'>No hay tareas</h3>
+    <p style='color: var(--text-muted);'>Agrega una nueva tarea para comenzar</p>
+</div>";
 }
