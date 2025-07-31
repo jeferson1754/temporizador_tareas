@@ -612,6 +612,20 @@
                 font-size: 2.5rem;
             }
         }
+
+        .task-item.is-dragging {
+            opacity: 0.5;
+            transform: scale(1.05);
+            background: rgba(22, 33, 62, 0.7);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            cursor: grabbing;
+        }
+
+        .task-item.is-ghost {
+            background-color: var(--border-color);
+            border: 2px dashed var(--primary-color);
+            opacity: 0.8;
+        }
     </style>
 </head>
 
@@ -731,8 +745,9 @@
         let isRunning = false;
         let currentTaskTime = 0; // Tiempo en minutos de la tarea actual
         let currentTaskBeingTimed = null; // ID de la tarea que el temporizador está cronometrando
-
         let editingTaskId = null; // Para saber si estamos editando o añadiendo
+
+        let draggedItem = null; // Variable para almacenar el elemento que se está arrastrando
 
         // Inicialización
         document.addEventListener('DOMContentLoaded', function() {
@@ -793,6 +808,78 @@
             editingTaskId = null; // Restablecer el ID de edición
         }
 
+        function initializeDragAndDrop() {
+            const pendingList = document.getElementById('pending-tasks-list');
+            const completedList = document.getElementById('completed-tasks-list');
+
+            // --- Lógica para la lista de TAREAS PENDIENTES ---
+            // Evento al empezar a arrastrar un elemento
+            pendingList.addEventListener('dragstart', (e) => {
+                if (e.target.classList.contains('task-item')) {
+                    draggedItem = e.target;
+                    setTimeout(() => {
+                        e.target.classList.add('is-dragging');
+                    }, 0);
+                }
+            });
+
+            // Evento al terminar de arrastrar un elemento
+            pendingList.addEventListener('dragend', (e) => {
+                if (e.target.classList.contains('task-item')) {
+                    e.target.classList.remove('is-dragging');
+                    draggedItem = null;
+                }
+            });
+
+            // Evento cuando un elemento arrastrado entra sobre la lista
+            pendingList.addEventListener('dragover', (e) => {
+                e.preventDefault(); // Permite el "drop"
+                const afterElement = getDragAfterElement(pendingList, e.clientY);
+                const currentDragged = document.querySelector('.is-dragging');
+                if (afterElement == null) {
+                    pendingList.appendChild(currentDragged);
+                } else {
+                    pendingList.insertBefore(currentDragged, afterElement);
+                }
+            });
+
+            // Evento al soltar un elemento
+            pendingList.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const newIndex = Array.from(pendingList.children).indexOf(draggedItem);
+                handleTaskReorder(draggedItem, newIndex);
+            });
+
+            // --- Lógica para la lista de TAREAS COMPLETADAS (para evitar drops) ---
+            completedList.addEventListener('dragover', (e) => {
+                e.preventDefault(); // Permite el "drop" visualmente pero no se procesa
+            });
+
+            completedList.addEventListener('drop', (e) => {
+                e.preventDefault();
+                showNotification('No se pueden mover tareas a la lista de completadas de esta forma. Usa el checkbox.', 'warning');
+            });
+        }
+
+        // Función auxiliar para saber dónde insertar el elemento arrastrado
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.task-item:not(.is-dragging)')];
+
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return {
+                        offset: offset,
+                        element: child
+                    };
+                } else {
+                    return closest;
+                }
+            }, {
+                offset: Number.NEGATIVE_INFINITY
+            }).element;
+        }
 
         // Manejar formulario de nueva tarea o edición
         document.getElementById('task-form').addEventListener('submit', function(e) {
@@ -825,16 +912,12 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        // Si la tarea editada es la misma que está siendo cronometrada
                         if (editingTaskId && editingTaskId === currentTaskBeingTimed) {
-                            currentTaskTime = time; // Actualiza el tiempo del temporizador con el nuevo tiempo
-                            // No se actualiza timeLeft aquí si está corriendo, para evitar saltos.
-                            // Si el usuario quiere el nuevo tiempo, debe reiniciar el timer.
-                            // Actualiza el título de la página para reflejar el nuevo nombre y tiempo
-                            updatePageTitle(); // Llama a la función para actualizar el título con los valores actuales
+                            currentTaskTime = time;
+                            updatePageTitle();
                             showNotification(`Tarea "${name}" actualizada en el reloj.`, 'success');
                         }
-                        renderTasks(); // Recargar las tareas desde el servidor
+                        renderTasks();
                         hideAddTaskModal();
                         showNotification(editingTaskId ? 'Tarea actualizada exitosamente' : 'Tarea agregada exitosamente', 'success');
                     } else {
@@ -893,23 +976,63 @@
         }
 
 
-        // Reemplaza el array de tareas por peticiones AJAX
-        function renderTasks() {
-            // Cargar tareas pendientes
-            fetch('obtener_tareas.php?estado=Faltante')
-                .then(res => res.text())
-                .then(html => {
-                    document.getElementById('pending-tasks-list').innerHTML = html;
-                    // Aquí es donde debemos asegurarnos de que el temporizador se actualice
-                    // si la tarea actual fue completada y hay una siguiente tarea.
-                    // Esto se maneja mejor en toggleTask, pero esta función refresca toda la lista.
-                });
 
-            // Cargar tareas completadas
-            fetch('obtener_tareas.php?estado=Hecho')
-                .then(res => res.text())
-                .then(html => {
-                    document.getElementById('completed-tasks-list').innerHTML = html;
+        // ...
+
+        // Reemplaza el array de tareas por peticiones AJAX
+        async function renderTasks() {
+            try {
+                const [pendingHtml, completedHtml] = await Promise.all([
+                    fetch('obtener_tareas copy.php?estado=Faltante').then(res => res.text()),
+                    fetch('obtener_tareas copy.php?estado=Hecho').then(res => res.text())
+                ]);
+
+                const pendingList = document.getElementById('pending-tasks-list');
+                const completedList = document.getElementById('completed-tasks-list');
+
+                pendingList.innerHTML = pendingHtml;
+                completedList.innerHTML = completedHtml;
+
+                initializeDragAndDrop();
+
+            } catch (error) {
+                console.error('Error al renderizar las tareas:', error);
+                showNotification('Error al cargar las listas de tareas.', 'danger');
+            }
+        }
+
+
+        // Nueva función para manejar el reordenamiento
+        function handleTaskReorder(draggedItem, newIndex) {
+            const listElement = draggedItem.parentNode;
+            const tasksInList = Array.from(listElement.querySelectorAll('.task-item'));
+
+            const updatedOrder = tasksInList.map((item, index) => ({
+                id: parseInt(item.getAttribute('data-id')),
+                order: index + 1
+            }));
+
+            // Enviar el nuevo orden al servidor
+            fetch('actualizar_orden.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updatedOrder)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Orden de tareas actualizado.', 'success');
+                    } else {
+                        showNotification('Error al actualizar el orden: ' + data.message, 'danger');
+                        renderTasks(); // Re-renderizar para volver al estado anterior
+                    }
+                })
+                .catch(error => {
+                    console.error('Error de conexión:', error);
+                    showNotification('Error de conexión al actualizar el orden.', 'danger');
+                    renderTasks(); // Re-renderizar para volver al estado anterior
                 });
         }
 

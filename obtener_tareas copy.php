@@ -1,9 +1,9 @@
 <?php
 // obtener_tareas copy.php
-include 'bd.php'; // Asegúrate de que este archivo conecta a tu base de datos y define $conexion
+// Este script obtiene y muestra las tareas filtradas por estado.
 
+include 'bd.php';
 $estado = $_GET['estado'] ?? 'Faltante';
-// Se ha añadido la columna 'Orden' para poder ordenar las tareas
 $sql = "SELECT * FROM tareas WHERE Estado='$estado' ORDER BY Orden ASC";
 $result = mysqli_query($conexion, $sql);
 
@@ -13,8 +13,8 @@ if (mysqli_num_rows($result) > 0) {
         $nombre = htmlspecialchars($row['Nombre'], ENT_QUOTES, 'UTF-8');
         $tiempo = $row['Tiempo'];
         $checked = ($estado == 'Hecho') ? 'checked' : '';
-        // Se añade data-id y data-name para que JavaScript pueda acceder a ellos
-        echo "<div class='task-item' data-id='{$id}' data-name='{$nombre}' data-time='{$tiempo}'>
+        // Se añade draggable="true" y los data-attributes
+        echo "<div class='task-item' draggable='true' data-id='{$id}' data-name='{$nombre}' data-time='{$tiempo}'>
                 <input type='checkbox' class='task-checkbox' {$checked} onchange='toggleTask({$id}, this.checked ? \"Hecho\" : \"Faltante\")'>
                 <div class='task-label " . ($checked ? "completed" : "") . "'>{$nombre}</div>
                 <div class='task-time'>{$tiempo} min</div>";
@@ -27,9 +27,9 @@ if (mysqli_num_rows($result) > 0) {
         echo '</div>';
     }
 } else {
-    echo "<div class='empty-state' style='display: flex; flex-direction: column; justify-content: center; align-items: center;'>
-    <i class='fas fa-clipboard-list'></i>
-    <h3 style='margin-top: 20px; margin-bottom: 10px; color: var(--text-secondary);'>No hay tareas</h3>
-    <p style='color: var(--text-muted);'>Agrega una nueva tarea para comenzar</p>
-</div>";
+    echo "<div class='empty-state'>
+            <i class='fas fa-clipboard-list'></i>
+            <h3 style='margin: 0 auto;'>No hay tareas</h3>
+            <p>Agrega una nueva tarea para comenzar</p>
+        </div>";
 }
