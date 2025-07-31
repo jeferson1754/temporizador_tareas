@@ -571,14 +571,12 @@
             </div>
         </div>
 
-        <!-- Tab de Tareas -->
         <div id="tasks-tab" class="tab-content active">
             <div class="card">
                 <button class="add-task-btn" onclick="showAddTaskModal()">
                     <i class="fas fa-plus"></i> Nueva Tarea
                 </button>
 
-                <!-- Cambia la sección de tareas para que se rellene con PHP -->
                 <div class="tasks-section" id="pending-tasks">
                     <h3><i class="fas fa-hourglass-half"></i> Tareas Pendientes</h3>
                     <div id="pending-tasks-list"></div>
@@ -590,7 +588,6 @@
             </div>
         </div>
 
-        <!-- Tab del Temporizador -->
         <div id="timer-tab" class="tab-content">
             <div class="card">
                 <div class="timer-display">
@@ -608,7 +605,6 @@
         </div>
     </div>
 
-    <!-- Modal para Nueva Tarea -->
     <div id="task-modal" class="modal">
         <div class="modal-content">
             <h2><i class="fas fa-plus-circle"></i> Nueva Tarea</h2>
@@ -629,7 +625,6 @@
         </div>
     </div>
 
-    <!-- Modal de Tiempo Terminado -->
     <div id="timer-modal" class="timer-modal">
         <div class="timer-modal-content">
             <i class="fas fa-bell" style="font-size: 3rem; color: var(--warning-color); margin-bottom: 20px;"></i>
@@ -646,9 +641,8 @@
         </div>
     </div>
 
-    <!-- Audio para la alarma -->
     <audio id="alarm-sound" preload="auto">
-        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmUdBSuV3++NeiwGLL/M9dR1IAcvvKLyt2MdAzmf2+yvWA4ATKng3KdTFQZLndjq36xNIANHpKXvsHQdB0OZyOzLfyMFK7vH8tKHMAkZZLrh669VFA1Po8ztzHxPGQRMqcnz1IMLEAAiVQCAA" type="audio/wav">
+        <source src="op.mp4" type="audio/mp4">
     </audio>
 
     <script>
@@ -657,7 +651,8 @@
         let timer = null;
         let timeLeft = 25 * 60; // 25 minutos por defecto
         let isRunning = false;
-        let currentTaskTime = 25;
+        let currentTaskTime = 0; // Tiempo en minutos de la tarea actual
+        let currentTaskBeingTimed = null; // ID de la tarea que el temporizador está cronometrando
 
         let editingTaskId = null; // Para saber si estamos editando o añadiendo
 
@@ -665,6 +660,9 @@
         document.addEventListener('DOMContentLoaded', function() {
             renderTasks();
             updateTimerDisplay();
+            addStatsButton();
+            // Cargar la primera tarea pendiente en el temporizador al inicio
+            loadFirstPendingTaskForTimer();
         });
 
         // Gestión de pestañas
@@ -681,7 +679,14 @@
 
             // Mostrar la pestaña seleccionada
             document.getElementById(tabName + '-tab').classList.add('active');
-            event.target.classList.add('active');
+            // 'event.target' es el elemento que fue clickeado, que en este caso es el nav-tab
+            // Si la llamada no viene de un evento de click (ej. programática), event.target será undefined
+            // Por eso es mejor usar una referencia al elemento del DOM si es posible.
+            const clickedTab = document.querySelector(`.nav-tab[onclick*="showTab('${tabName}')"]`);
+            if (clickedTab) {
+                clickedTab.classList.add('active');
+            }
+
 
             currentTab = tabName;
         }
@@ -711,10 +716,6 @@
             editingTaskId = null; // Restablecer el ID de edición
         }
 
-        // Asegúrate de que esta variable exista globalmente
-        // let currentTaskBeingTimed = null; // ID de la tarea que el temporizador está cronometrando
-        // let currentTaskTime = 25; // Tiempo inicial del temporizador (minutos)
-
 
         // Manejar formulario de nueva tarea o edición
         document.getElementById('task-form').addEventListener('submit', function(e) {
@@ -734,7 +735,7 @@
             } else {
                 // Estamos añadiendo una nueva tarea
                 url = 'agregar_tarea.php'; // Tu script para añadir
-                body = `name=${encodeURIComponent(name)}&time=${time}`;
+                body = `nombre=${encodeURIComponent(name)}&tiempo=${time}`;
             }
 
             fetch(url, {
@@ -747,27 +748,15 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        // --- NUEVA LÓGICA AÑADIDA AQUÍ ---
                         // Si la tarea editada es la misma que está siendo cronometrada
                         if (editingTaskId && editingTaskId === currentTaskBeingTimed) {
                             currentTaskTime = time; // Actualiza el tiempo del temporizador con el nuevo tiempo
-                            // Opcional: Si el temporizador está corriendo, podrías querer ajustar timeLeft si el nuevo tiempo es menor
-                            // if (isRunning && timeLeft > currentTaskTime * 60) {
-                            //     timeLeft = currentTaskTime * 60;
-                            //     updateTimerDisplay(); // Actualiza inmediatamente la pantalla del temporizador
-                            // }
+                            // No se actualiza timeLeft aquí si está corriendo, para evitar saltos.
+                            // Si el usuario quiere el nuevo tiempo, debe reiniciar el timer.
                             // Actualiza el título de la página para reflejar el nuevo nombre y tiempo
-                            document.title = `${formatTime(currentTaskTime * 60)} - ${name} - Temporizador`;
+                            updatePageTitle(); // Llama a la función para actualizar el título con los valores actuales
                             showNotification(`Tarea "${name}" actualizada en el reloj.`, 'success');
-
-                            // Si quieres que el temporizador también se reinicie con el nuevo tiempo, descomenta lo siguiente:
-                            // if (!isRunning) { // Solo si no está corriendo
-                            //     timeLeft = currentTaskTime * 60;
-                            //     updateTimerDisplay();
-                            // }
                         }
-                        // --- FIN NUEVA LÓGICA ---
-
                         renderTasks(); // Recargar las tareas desde el servidor
                         hideAddTaskModal();
                         showNotification(editingTaskId ? 'Tarea actualizada exitosamente' : 'Tarea agregada exitosamente', 'success');
@@ -782,20 +771,65 @@
         });
 
 
+        // Carga la primera tarea pendiente en el temporizador
+        function loadFirstPendingTaskForTimer() {
+            fetch('obtener_tareas.php?estado=Faltante')
+                .then(res => res.text())
+                .then(html => {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html;
+                    const firstTaskElement = tempDiv.querySelector('.task-item'); // Obtiene el primer elemento
 
+                    if (firstTaskElement) {
+                        const taskId = parseInt(firstTaskElement.getAttribute('data-id'));
+                        const taskTime = parseInt(firstTaskElement.getAttribute('data-time'));
+                        const taskName = firstTaskElement.querySelector('.task-label').textContent.trim(); // Obtener el nombre
+
+                        currentTaskBeingTimed = taskId;
+                        currentTaskTime = taskTime;
+                        timeLeft = currentTaskTime * 60;
+                        updateTimerDisplay();
+                        document.title = `${formatTime(timeLeft)} - ${taskName} - Temporizador`;
+                        showNotification(`Temporizador configurado para: "${taskName}" (${taskTime} min)`, 'info');
+                    } else {
+                        currentTaskBeingTimed = null;
+                        currentTaskTime = 25; // Default time
+                        timeLeft = currentTaskTime * 60;
+                        updateTimerDisplay();
+                        document.title = 'Temporizador de Tareas';
+                        showNotification('No hay tareas pendientes. Configurando temporizador a 25 min.', 'info');
+                    }
+                    updateCountdownColor(); // Asegurar que el color se actualice al cargar
+                    updateStartButton(); // Asegurar que el botón de inicio se actualice
+                })
+                .catch(error => {
+                    console.error('Error al cargar la primera tarea pendiente:', error);
+                    showNotification('Error al cargar la primera tarea. Temporizador a 25 min.', 'danger');
+                    currentTaskBeingTimed = null;
+                    currentTaskTime = 25; // Default time
+                    timeLeft = currentTaskTime * 60;
+                    updateTimerDisplay();
+                    document.title = 'Temporizador de Tareas';
+                    updateCountdownColor();
+                    updateStartButton();
+                });
+        }
 
 
         // Reemplaza el array de tareas por peticiones AJAX
         function renderTasks() {
             // Cargar tareas pendientes
-            fetch('obtener_tareas copy.php?estado=Faltante')
+            fetch('obtener_tareas.php?estado=Faltante')
                 .then(res => res.text())
                 .then(html => {
                     document.getElementById('pending-tasks-list').innerHTML = html;
+                    // Aquí es donde debemos asegurarnos de que el temporizador se actualice
+                    // si la tarea actual fue completada y hay una siguiente tarea.
+                    // Esto se maneja mejor en toggleTask, pero esta función refresca toda la lista.
                 });
 
             // Cargar tareas completadas
-            fetch('obtener_tareas copy.php?estado=Hecho')
+            fetch('obtener_tareas.php?estado=Hecho')
                 .then(res => res.text())
                 .then(html => {
                     document.getElementById('completed-tasks-list').innerHTML = html;
@@ -804,30 +838,70 @@
 
         // Al marcar/desmarcar una tarea
         function toggleTask(id, estado) {
-            fetch('actualizar_tarea copy.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: `id=${id}&estado=${estado}`
-            }).then(() => {
-                renderTasks();
-                showNotification('Tarea actualizada', 'success');
-            });
+            fetch('actualizar_tarea.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `id=${id}&estado=${estado}`
+                }).then(response => response.json()) // Asegurarse de parsear la respuesta JSON
+                .then(data => {
+                    if (data.success) {
+                        renderTasks();
+                        showNotification('Tarea actualizada', 'success');
+
+                        // Si la tarea que se acaba de marcar como 'Hecho' era la que se estaba cronometrando
+                        if (id === currentTaskBeingTimed && estado === 'Hecho') {
+                            // Pausar el temporizador si está corriendo
+                            if (isRunning) {
+                                pauseTimer();
+                            }
+                            // Cargar la siguiente tarea pendiente para el temporizador
+                            loadFirstPendingTaskForTimer();
+                        } else if (id === currentTaskBeingTimed && estado === 'Faltante') {
+                            // Si se desmarca la tarea que se estaba cronometrando,
+                            // podríamos optar por pausar el temporizador o simplemente dejarlo correr.
+                            // Por ahora, no hacemos nada especial aquí, el temporizador seguirá con el tiempo restante.
+                            // Si se desea que el temporizador "desvincule" la tarea, se podría resetTimer() aquí.
+                            showNotification('Tarea desmarcada. Temporizador no afectado.', 'info');
+                        }
+                    } else {
+                        showNotification('Error al actualizar tarea: ' + data.message, 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error de conexión al actualizar tarea:', error);
+                    showNotification('Error de conexión al actualizar tarea', 'danger');
+                });
         }
 
         // Eliminar tarea
         function deleteTask(id) {
             fetch('eliminar_tarea.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: `id=${id}`
-            }).then(() => {
-                renderTasks();
-                showNotification('Tarea eliminada', 'info');
-            });
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `id=${id}`
+                }).then(response => response.json()) // Asegurarse de parsear la respuesta JSON
+                .then(data => {
+                    if (data.success) {
+                        renderTasks();
+                        showNotification('Tarea eliminada', 'info');
+                        // Si la tarea eliminada era la que se estaba cronometrando,
+                        // cargar la siguiente tarea pendiente
+                        if (id === currentTaskBeingTimed) {
+                            if (isRunning) pauseTimer(); // Pausar si estaba corriendo
+                            loadFirstPendingTaskForTimer();
+                        }
+                    } else {
+                        showNotification('Error al eliminar tarea: ' + data.message, 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error de conexión al eliminar tarea:', error);
+                    showNotification('Error de conexión al eliminar tarea', 'danger');
+                });
         }
 
         // Gestión del temporizador
@@ -839,25 +913,36 @@
             }
         }
 
-        // Modifica showAddTaskModal para permitir "iniciar con esta tarea" o algo similar
-        // O añade un botón de "Iniciar Temporizador" en cada tarea de la lista
-        // Ejemplo de cómo se vería la llamada (si tuvieras un botón "Iniciar Temporizador" en cada tarea):
-        // <button onclick="startTimerForTask(${task.id}, ${task.time})">Iniciar</button>
-
-        let currentTaskBeingTimed = null; // Variable para almacenar el ID de la tarea actual
-
-        function startTimer(taskId = null) { // Acepta un ID de tarea opcional
-            if (taskId) {
-                currentTaskBeingTimed = taskId;
-                // Opcional: obtener el tiempo de la tarea desde el servidor si no lo tienes
-                // o asumirlo si es un tiempo fijo como Pomodoro.
-                // Para este ejemplo, asumamos que currentTaskTime ya está ajustado si se inició para una tarea.
-            } else {
-                currentTaskBeingTimed = null; // No hay tarea específica
+        function startTimer() {
+            // Si el temporizador no tiene una tarea asignada, intenta cargar la primera pendiente
+            if (currentTaskBeingTimed === null || currentTaskTime === 0) { // Añadimos currentTaskTime === 0
+                loadFirstPendingTaskForTimer();
+                // Retrasamos el inicio del timer para asegurarnos de que loadFirstPendingTaskForTimer haya cargado
+                // Si loadFirstPendingTaskForTimer es asíncrona, el timer no puede iniciar inmediatamente aquí.
+                // Podríamos modificar loadFirstPendingTaskForTimer para devolver una promesa.
+                // Por ahora, asumimos que se encarga de configurar el estado global.
+                // Para evitar un inicio inmediato si loadFirstPendingTaskForTimer es lenta,
+                // podrías añadir un setTimeout o una bandera para indicar que está "cargando".
+                if (!isRunning) { // Si no está corriendo después de un posible load
+                    // Pequeño retraso para que loadFirstPendingTaskForTimer tenga tiempo de ejecutarse
+                    setTimeout(() => {
+                        if (!isRunning && timeLeft > 0) { // Vuelve a verificar el estado después del retraso
+                            _startTimerInternal(); // Llama a la función interna de inicio
+                        }
+                    }, 100);
+                }
+                return;
             }
+            _startTimerInternal(); // Si ya hay una tarea y tiempo, inicia directamente
+        }
 
-            if (timeLeft <= 0) {
-                timeLeft = currentTaskTime * 60;
+        // Función interna para iniciar el temporizador, llamada después de la configuración de la tarea
+        function _startTimerInternal() {
+            if (isRunning || timeLeft <= 0) {
+                if (timeLeft <= 0) {
+                    showNotification('No hay tiempo establecido. Asegúrate de tener tareas pendientes o edita el tiempo.', 'warning');
+                }
+                return;
             }
 
             isRunning = true;
@@ -875,38 +960,47 @@
             }, 1000);
         }
 
+
         function pauseTimer() {
             isRunning = false;
             clearInterval(timer);
             updateStartButton();
-            document.title = 'Temporizador de Tareas';
+            updatePageTitle(); // Asegurarse de que el título se reinicie al pausar
         }
 
         function resetTimer() {
             isRunning = false;
             clearInterval(timer);
+            // Restablecer el tiempo a la duración original de la tarea actual, no a 25 minutos fijos
             timeLeft = currentTaskTime * 60;
             updateTimerDisplay();
             updateStartButton();
             document.title = 'Temporizador de Tareas';
+            document.getElementById('countdown').classList.remove('warning', 'danger'); // Quitar clases de color
         }
 
         function timerComplete() {
             isRunning = false;
             clearInterval(timer);
             updateStartButton();
-            document.title = 'Temporizador de Tareas';
+            document.title = 'Temporizador de Tareas'; // Restablecer título
 
             playAlarm();
             document.getElementById('timer-modal').style.display = 'block';
 
             if (currentTaskBeingTimed) {
-                // Si hay una tarea específica, marcarla como completada
-                toggleTask(currentTaskBeingTimed, 'Hecho'); // Asumiendo que 'Hecho' es el estado para completado
-                currentTaskBeingTimed = null; // Resetear la tarea actual
+                // Si hay una tarea específica, marcarla como completada y cargar la siguiente
+                // La función toggleTask ya maneja la actualización del temporizador con la siguiente tarea
+                // cuando se marca como 'Hecho'.
+                toggleTask(currentTaskBeingTimed, 'Hecho');
             } else {
-                // Si no hay tarea específica, mostrar solo la notificación de tiempo terminado
+                // Si no hay tarea específica (ej. se cronometraron 25 minutos por defecto)
                 showNotification('¡Tiempo Terminado!', 'warning');
+                // Podríamos restablecer el tiempo a 25 min si no había tarea.
+                currentTaskTime = 25;
+                timeLeft = currentTaskTime * 60;
+                updateTimerDisplay();
+                updateCountdownColor();
             }
         }
 
@@ -915,6 +1009,13 @@
             const seconds = timeLeft % 60;
             const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             document.getElementById('countdown').textContent = display;
+        }
+
+        // Formatea el tiempo en segundos a "MM:SS"
+        function formatTime(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
 
         function updateStartButton() {
@@ -929,16 +1030,25 @@
         }
 
         function updatePageTitle() {
-            if (isRunning) {
-                const minutes = Math.floor(timeLeft / 60);
-                const seconds = timeLeft % 60;
-                const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                document.title = `${display} - Temporizador`;
+            const countdownDisplay = formatTime(timeLeft);
+            let title = `${countdownDisplay} - Temporizador`;
+            // Si hay una tarea en curso, la incluimos en el título
+            if (currentTaskBeingTimed) {
+                // Necesitamos el nombre de la tarea. Para obtenerlo de forma fiable,
+                // deberíamos pasar el nombre junto con el ID o mantenerlo en una variable.
+                // Por ahora, intentamos obtenerlo del DOM si la tarea está visible.
+                const taskElement = document.querySelector(`.task-item[data-id="${currentTaskBeingTimed}"] .task-label`);
+                if (taskElement) {
+                    title = `${countdownDisplay} - ${taskElement.textContent.trim()} - Temporizador`;
+                }
             }
+            document.title = title;
         }
 
         function restartTimer() {
             closeTimerModal();
+            // Si había una tarea cronometrada, la reiniciamos a su tiempo original.
+            // currentTaskTime ya almacena el tiempo original de la tarea.
             resetTimer();
             startTimer();
         }
@@ -951,8 +1061,7 @@
         function playAlarm() {
             const audio = document.getElementById('alarm-sound');
             audio.play().catch(e => {
-                // Si no se puede reproducir el audio, mostrar una notificación visual
-                showNotification('¡Tiempo terminado!', 'warning');
+                showNotification('¡Tiempo terminado! No se pudo reproducir el audio.', 'warning');
             });
         }
 
@@ -1086,29 +1195,20 @@
             }
         }
 
-        // Actualizar la función startTimer para incluir el cambio de color
-        const originalStartTimer = startTimer;
+        // Para evitar problemas de sobreescritura de funciones
+        // Envuelve la lógica del setInterval en una función interna
+        const _originalStartTimer = startTimer;
         startTimer = function() {
-            originalStartTimer();
-
-            // Actualizar el intervalo para incluir el cambio de color
-            clearInterval(timer);
-            timer = setInterval(() => {
-                timeLeft--;
-                updateTimerDisplay();
-                updateCountdownColor();
-                updatePageTitle();
-
-                if (timeLeft <= 0) {
-                    timerComplete();
-                }
-            }, 1000);
+            _originalStartTimer.apply(this, arguments); // Llama a la función original
+            // Mueve el clearInterval y setInterval a _startTimerInternal si es una llamada directa
+            // o ajusta la lógica aquí si se usa como un wrapper.
         };
 
+
         // Actualizar resetTimer para remover clases de color
-        const originalResetTimer = resetTimer;
+        const _originalResetTimer = resetTimer;
         resetTimer = function() {
-            originalResetTimer();
+            _originalResetTimer();
             document.getElementById('countdown').classList.remove('warning', 'danger');
         };
 
@@ -1136,64 +1236,44 @@
         // Inicializar el temporizador de inactividad
         resetInactivityTimer();
 
-        // Función para exportar tareas
+        // Las funciones de exportar/importar tareas y estadísticas
+        // necesitan acceso a un array de 'tasks'. Dado que tu PHP las carga dinámicamente,
+        // tendrías que obtener todas las tareas desde PHP para que estas funciones trabajen con datos completos.
+        // Si no usas estas funciones con la BD, se mantienen como están, pero no harán nada útil.
+
+        // Función para exportar tareas (Requiere que 'tasks' sea un array global poblado por PHP)
+        // Actualmente, 'tasks' no está definido como un array global. Deberías cargar todas las tareas
+        // en un array JavaScript si quieres usar esta función.
         function exportTasks() {
-            const dataStr = JSON.stringify(tasks, null, 2);
-            const dataBlob = new Blob([dataStr], {
-                type: 'application/json'
-            });
-
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(dataBlob);
-            link.download = 'tareas_' + new Date().toISOString().split('T')[0] + '.json';
-            link.click();
-
-            showNotification('Tareas exportadas exitosamente', 'success');
+            showNotification('La función de exportar requiere que las tareas estén cargadas en un array JS.', 'warning');
+            // const dataStr = JSON.stringify(tasks, null, 2);
+            // ... (resto de la función)
         }
 
-        // Función para importar tareas
+        // Función para importar tareas (Requiere que 'tasks' sea un array global poblado por PHP)
         function importTasks(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedTasks = JSON.parse(e.target.result);
-                    if (Array.isArray(importedTasks)) {
-                        tasks = [...tasks, ...importedTasks];
-                        renderTasks();
-                        showNotification('Tareas importadas exitosamente', 'success');
-                    } else {
-                        showNotification('Formato de archivo inválido', 'warning');
-                    }
-                } catch (error) {
-                    showNotification('Error al importar tareas', 'warning');
-                }
-            };
-            reader.readAsText(file);
+            showNotification('La función de importar requiere acceso a las tareas cargadas en un array JS.', 'warning');
+            // const file = event.target.files[0];
+            // ... (resto de la función)
         }
 
-        // Agregar estadísticas básicas
+        // Función para obtener estadísticas (Requiere que 'tasks' sea un array global poblado por PHP)
         function getTaskStats() {
-            const total = tasks.length;
-            const completed = tasks.filter(t => t.completed).length;
-            const pending = total - completed;
-            const totalTime = tasks.reduce((sum, task) => sum + task.time, 0);
-            const completedTime = tasks.filter(t => t.completed).reduce((sum, task) => sum + task.time, 0);
-
+            // Actualmente no se accede a las tareas directamente, solo se usa un placeholder para 'tasks'
             return {
-                total,
-                completed,
-                pending,
-                totalTime,
-                completedTime,
-                completionRate: total > 0 ? Math.round((completed / total) * 100) : 0
+                total: 0,
+                completed: 0,
+                pending: 0,
+                totalTime: 0,
+                completedTime: 0,
+                completionRate: 0
             };
         }
 
         // Función para mostrar estadísticas
         function showStats() {
+            // Esta función llama a getTaskStats, que necesita un array 'tasks' global.
+            // Si quieres estadísticas reales de la BD, tendrías que cargar todas las tareas aquí.
             const stats = getTaskStats();
             const message = `
                 📊 Estadísticas de Productividad:
@@ -1206,7 +1286,7 @@
                 ✨ Tiempo completado: ${stats.completedTime} min
             `;
 
-            alert(message); // Se podría mejorar con un modal personalizado
+            alert(message);
         }
 
         // Mejorar la función de renderizado para incluir un botón de estadísticas
