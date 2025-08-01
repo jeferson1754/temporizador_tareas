@@ -733,10 +733,6 @@
         </div>
     </div>
 
-    <audio id="alarm-sound" preload="auto">
-        <source src="op.mp4" type="audio/mp4">
-    </audio>
-
     <script>
         // Estado de la aplicación
         let currentTab = 'tasks';
@@ -749,6 +745,19 @@
 
         let draggedItem = null; // Variable para almacenar el elemento que se está arrastrando
 
+        // Array de URLs de sonidos de alarma de Freesound (o cualquier otra fuente)
+        // **Importante:** Debes obtener las URLs de los archivos de audio por tu cuenta.
+        // Aquí hay un ejemplo con URLs de un repositorio de GitHub que tiene sonidos de dominio público.
+        const alarmSounds = [
+            'https://cdn.freesound.org/previews/818/818114_3162775-lq.mp3',
+            'https://cdn.freesound.org/previews/807/807232_2520418-lq.mp3',
+            'https://cdn.freesound.org/previews/790/790342_16303686-lq.mp3',
+            'https://cdn.freesound.org/previews/788/788862_7258681-lq.mp3'
+        ];
+
+        let currentAlarm = null; // Variable para almacenar la instancia de Audio actual
+
+
         // Inicialización
         document.addEventListener('DOMContentLoaded', function() {
             renderTasks();
@@ -756,6 +765,8 @@
             // Cargar la primera tarea pendiente en el temporizador al inicio
             loadFirstPendingTaskForTimer();
         });
+
+
 
         // Gestión de pestañas
         function showTab(tabName) {
@@ -1258,17 +1269,43 @@
             stopAlarm();
         }
 
+        // -- INICIO CAMBIOS PARA SONIDO ALEATORIO --
+
+        function selectRandomAlarmSound() {
+            // Si el array de sonidos está vacío, no hacemos nada
+            if (alarmSounds.length === 0) return null; //
+
+            // Seleccionar un índice aleatorio
+            const randomIndex = Math.floor(Math.random() * alarmSounds.length); //
+
+            // **NUEVO:** Imprime la URL del sonido seleccionado en la consola
+            const randomSoundUrl = alarmSounds[randomIndex];
+            console.log("Alarma seleccionada aleatoriamente:", randomSoundUrl);
+
+            return randomSoundUrl;
+        }
+
         function playAlarm() {
-            const audio = document.getElementById('alarm-sound');
-            audio.play().catch(e => {
-                showNotification('¡Tiempo terminado! No se pudo reproducir el audio.', 'warning');
-            });
+            stopAlarm(); // Detenemos cualquier alarma anterior
+
+            const audioUrl = selectRandomAlarmSound();
+            if (audioUrl) {
+                const audio = new Audio(audioUrl); // Creamos una nueva instancia de Audio
+                audio.play().catch(e => {
+                    console.error("Error al reproducir el sonido de la alarma:", e);
+                    showNotification('¡Tiempo terminado! No se pudo reproducir el audio.', 'warning');
+                });
+                currentAlarm = audio; // Guardamos la instancia para poder detenerla después
+            } else {
+                showNotification('¡Tiempo terminado! No hay sonidos de alarma configurados.', 'warning');
+            }
         }
 
         function stopAlarm() {
-            const audio = document.getElementById('alarm-sound');
-            audio.pause();
-            audio.currentTime = 0;
+            if (currentAlarm) {
+                currentAlarm.pause();
+                currentAlarm.currentTime = 0;
+            }
         }
 
         // Sistema de notificaciones
